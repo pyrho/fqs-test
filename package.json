@@ -1,0 +1,23 @@
+{
+  "devDependencies": {
+    "@faker-js/faker": "^9.4.0",
+    "prisma": "^6.3.1",
+    "prisma-dbml-generator": "^0.12.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "scripts": {
+    "scripts:migrate": "prisma migrate reset && ts-node src/migration/index",
+    "scripts:mock-data": "ts-node src/mock-data-generation/index",
+    "prisma:format": "prisma format",
+    "prisma:generate": "prisma generate",
+    "prisma:status": "prisma migrate status",
+    "prisma:reset": "prisma migrate reset",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1",
+    "date-fns": "^4.1.0",
+    "ts-pattern": "^5.6.2"
+  }
+}

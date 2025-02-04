@@ -1,0 +1,526 @@
+---
+title: "Freqens - Data Model Test"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float:
+      collapsed: true
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r install_packages, eval=FALSE, echo=FALSE}
+install.packages(c("RPostgres", "DBI", "tidyverse"))
+```
+
+```{r load_libraries, include=FALSE}
+library(RPostgres)
+library(DBI)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lubridate) 
+library(knitr)
+
+db_host <- "localhost"
+db_port <- 54321
+db_name <- "fqs"
+db_user <- "postgres"
+db_password <- "mysecretpassword"
+
+con <- dbConnect(
+  Postgres(),
+  host = db_host,
+  port = db_port,
+  dbname = db_name,
+  user = db_user,
+  password = db_password
+)
+```
+
+
+# Data Model Notes
+
+## Issues with the current model
+- Assuming the current database is JSON file
+    - probably good for a very early MVP
+    - bad for everything else (reliability, performance, consistency,
+      scalability)
+- Assuming the current database is document-based (noSQL)
+    - no DB schema is flexible but can lead to inconsistent data
+    - no DB schema can lead to data inconsistencies
+- Plan pricing data is stored at the user model
+    - hard to correlate this price with the actual plan price, are differences 
+      caused by changes in plan pricing? Discounts?
+- No history of potential past user plans and pricing
+- Unclear of `active` refers to user or plan
+    - if it refers to the plan there can potentially be inconsistencies if this
+      remains `true` past the plan's `ends_at`
+    - `active` could probably be derived from `ends_at`
+- When the user became active and when they cancelled isn't stored (assuming
+  it's not via `active`)
+- Historical plan prices aren't stored
+- Assuming the varying price are caused by discounts
+    - discounts not stored in DB
+
+## Repository
+
+The repository can be found [on Github](https://github.com/pyrho/fqs-test/tree/master).
+
+```
+λ ls --tree -I node_modules
+./
+├── data/
+│  ├── plans.json
+│  └── users.json
+├── db-data/
+├── docker-compose.yml
+├── package-lock.json
+├── package.json
+├── prisma/
+│  ├── dbml/
+│  │  └── schema.dbml
+│  ├── migrations/
+│  │  ├── 20250204213341_init/
+│  │  │  └── migration.sql
+│  │  └── migration_lock.toml
+│  └── schema.prisma
+├── src/
+│  ├── migration/
+│  │  ├── index.ts
+│  │  └── types.ts
+│  └── mock-data-generation/
+│     └── index.ts
+└── tsconfig.json
+```
+
+## Database notes
+
+Moving away for a document based data model to a relational database provides
+some benefits, such as:  
+
+- Atomicity, Consistency, Isolation, Durability  
+    - https://en.wikipedia.org/wiki/ACID  
+- best practice (to my knowledge) for this use case
+- leveraging power of the underlying DB engine for complex queries and fast
+  querying  
+
+### Database Diagram
+
+![](./fqsdb.png)
+
+View large version [here](./fqsdb.png).
+
+This diagram was manually laid out, the DBML file can also be generated automatically by running `npm run prisma:generate` in the repository and pasting the `prisma/dbml/schema.dbml` file in https://dbdiagram.io/.
+
+
+### Users & Teams
+
+Though not explicitely requested, the ability to have teams has been embedded in
+the model. Frontend team-releated functionality can be hidden for single-user teams.
+
+Number of seats per subscription has not been scoped in, but could be
+added in by adding a seat limit at the plan level (eg. there could be a 10 seats
+Basic Plan, and a 20 seats Basic Plan with different pricings).
+
+Subscriptions apply to a team, the team admin can define if the subscription
+should renew automatically (when a payment method has been stored).  
+
+### Plans
+
+Plans are stored in a dedicated table.
+
+Each tier of plan can appear multiple times to include "bulk pricing" (eg.
+cheaper if paying for a whole year).  
+Though more verbose, encoding these types of discount this way somewhat
+simplifies the model.
+
+Changes in tier pricing are created by creating a new row in this table for this
+tier and recurrence.  
+The most current pricing for a given tier is obtained by querying the table 
+for the most recent instance of a tier and recurrence, like so:
+
+```{r}
+
+basic_monthly_plan_current_pricing <- dbGetQuery(con, "
+  SELECT *
+  FROM \"Plan\"
+  WHERE tier='BASIC' AND recurrence='MONTHLY'
+  ORDER BY created_at DESC
+  LIMIT 1;
+")
+```
+
+```{r, echo=FALSE}
+kable(basic_monthly_plan_current_pricing)
+```
+
+### Subscriptions
+
+The start date of a subscripiton is linked to a user action.  
+The end date is defined by the selected plan's recurrence, this will be
+used to know when the plan should be renewed.
+
+For example, for a monthly plan set to auto-renew, every 30 days a new row will be added to the
+`subscriptions` table.  
+This allows historical tracking of a given team's subscriptions and ugrades.
+
+In the nominal case, the price of the subscription is defined by the plan row
+it's linked to; but this price can be changed by discounts which
+will be explored later in this document.
+
+The definition of whether a plan is refundable or not is a business decision, one
+hypothesis could be that if this subscription benefited from a discount, or is
+linked to a yearly payment, then it cannot be refunded.
+
+If a user cancels a subscription, the `cancelled_at` timestamp will be set and
+this subscription won't be renewed.
+
+### Discounts
+
+Besides "bulk purchase" discounts, one or more discounts can also be applied to a
+subscription (re-activation discounts for example).
+
+The amount specified in the discounts will be subtracted from the plan's price
+before generating a payment request.
+
+A discount also has an `end_date`, so that it may apply to multiple instances
+of a subscription.  
+
+Permanent team discounts could also be added by creating a new `team_discounts`
+table linked to a team.  
+Another way would be to create dedicated plans with other pricing for
+specific teams, a table would specify to which plans a given team has access to.
+
+### Upgrades
+
+If a team wants to upgrade their plan mid-way to a , the subscription row will update
+the `upgraded_at` timestamp and create a new `subscriptions` row alongside a
+discount amounting to the time already paid for the current subscription.  
+A new payment request and payment row will also be added.
+
+Downgrades have not been scoped in.
+
+### Payment & Refunds
+
+A subscription's price is determined by the selected plan's price minus any
+discounts that may apply.
+
+Payments are stored in a dedicated table and linked to a subscription,
+a payment method and stored information about the transaction (eg. a transaction ID).
+
+The amount paid is stored in the payments table to simplify business analytics,
+though it could be considered duplicated data.
+
+A subscription may only be active if a corresponding payment row exists.
+
+Refunds are tracked in the same way.
+
+### Use cases
+
+#### Subscriptions
+- get latest plan pricing for selected tier and recurrence
+- create new row in subscriptions table
+    - start date to `now()`
+    - end date computed from selected plan recurrence
+- create payment row
+
+#### Renewals
+- when the `end_date` of a given subscription is reached
+- if the team is set to `automatic_renewal` and the team has stored a payment
+  method
+- if the most recent subscription hasn't been `cancelled`
+- create a new subscription row for this team (using the same plan)
+- discounts may re-apply depending on its `end_date`
+
+#### Upgrades
+- get latest plan pricing for selected new tier and recurrence
+- set the `upgraded_at` field of the existing subscription to `now()`
+- create a new row in subscriptions table
+    - start date to `now()`
+    - end date should be the same as the current subscription
+- create a new row in `discounts` to account for the time already paid for for
+  current subscription
+- create payment row
+
+#### Cancellation
+- set `cancelled_at` to `now()` for current subscription
+    - the subscription will not renew
+
+#### Refunds
+- issue refund to customer
+- create new row in `refunds` table
+- set `cancelled_at` to `now()` for current subscription
+
+## Migration Notes
+
+- When `ends_at` is set, assuming this subscription is already paid for until
+  that date
+    - new payment will be requested (and subscription renewed) after `ends_at`
+- When `ends_at` is `null`
+    - assuming that the cost is meant to be paid monthly, thus setting a
+      `end_date` equal to `30 days + start_date`
+    - when this new date is reached, a new payment will be requested
+
+
+# Revenue Metrics
+
+## MRR/ARPU
+
+```{r, echo=FALSE}
+payments_total <- dbGetQuery(con, "
+  SELECT 
+    COUNT(DISTINCT subscription_id) as total_customers,
+    SUM(amount_cts) as total_amount_cts
+  FROM \"Payment\"
+  WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+")
+
+refunds_total <- dbGetQuery(con, "
+  SELECT SUM(amounts_cts) as total_amount_cts
+  FROM \"Refund\"
+  WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+")
+
+net_revenue <- (as.numeric(payments_total$total_amount_cts) - as.numeric(refunds_total$total_amount_cts)) / 100
+total_customers <- payments_total$total_customers
+
+monthly_arpu <- net_revenue / total_customers
+```
+The `MRR` has been computed by taking into account all `payments - refunds` (discounts are factored in the payment amount) for subscriptions that were created in the past 30 days.
+
+The `ARPU` is the `MRR` divided by the number of active subscriptions in that same timeframe.
+
+Over the past 30 days, the monthly `ARPU` is **$`r format(round(monthly_arpu, 2), big.mark=",")`** and the `MRR` is **$`r format(round(net_revenue, 2), big.mark=",")`**.
+
+
+```{r mrr, echo=FALSE}
+payments <- dbGetQuery(con, "
+  SELECT amount_cts, created_at 
+  FROM \"Payment\";
+")
+
+refunds <- dbGetQuery(con, "
+  SELECT amounts_cts as amount_cts, created_at, payment_id
+  FROM \"Refund\";
+")
+
+
+mrr <- payments %>%
+  mutate(amount = amount_cts / 100) %>%
+  group_by(month = floor_date(created_at, "month")) %>%
+  summarise(revenue = sum(amount)) %>%
+  left_join(
+    refunds %>%
+      mutate(amount = amount_cts / 100) %>%
+      group_by(month = floor_date(created_at, "month")) %>%
+      summarise(refunds = sum(amount)),
+    by = "month"
+  ) %>%
+  mutate(refunds = coalesce(refunds, 0)) %>%
+  mutate(net_revenue = revenue - refunds)
+
+# Filter out the current month because it's incomplete
+mrr <- mrr %>%
+  filter(month < floor_date(Sys.Date(), "month"))
+
+ggplot(mrr, aes(x = month, y = net_revenue)) +
+  theme_minimal() +
+  theme(
+    plot.background = element_rect(fill = "#1A202C", color = "#1A202C"),
+    panel.background = element_rect(fill = "#1A202C", color = "#1A202C"),
+    text = element_text(color = "#E2E8F0"),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold", color = "#E2E8F0"),
+    axis.title = element_text(size = 12, color = "#E2E8F0"),
+    axis.text = element_text(size = 10, color = "#A0AEC0"),
+    panel.grid.major = element_line(color = "#2D3748"),
+    panel.grid.minor = element_line(color = "#2D3748", linetype = "dotted"),
+    plot.caption = element_text(color = "#A0AEC0")
+  ) +
+  geom_line(color = "#63B3ED", linewidth = 1) +
+  geom_point(color = "#63B3ED", size = 3) +
+  labs(
+    title = "Monthly Revenue Over Time",
+    x = "Month",
+    y = "Revenue ($)",
+    caption = "Net revenue (payments - refunds)"
+  ) +
+  scale_y_continuous(
+    labels = scales::dollar_format(),
+    expand = expansion(mult = c(0.1, 0.1))
+  )
+```
+
+
+```{r churn, echo=FALSE}
+# Get the number of teams with subscriptions active in the past 30 days (even for one day)
+u1 <- dbGetQuery(con, "
+  SELECT COUNT(*)
+  FROM \"Subscription\"
+  WHERE created_at >= CURRENT_DATE - INTERVAL '30 days';
+")
+
+# Get the number of teams with a cancelled subscription over the past 30 days (assuming subscriptions that are not
+# renewed are marked as cancelled at runtime)
+u2 <- dbGetQuery(con, "
+  SELECT COUNT(*)
+  FROM \"Subscription\"
+  WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND cancelled_at IS NOT NULL;
+")
+
+churn_rate <- u2/u1*100
+```
+
+## Churn Rate
+
+The churn rate is computed by getting the number of subscriptions active in the past thirty days, and the number of subscriptions that have been cancelled in that same time frame.
+This is assuming that not-renewed subscriptions are marked as cancelled by the applicative layer.
+
+The churn rate over the past 30 days is **`r round(churn_rate, 2)`%**.
+
+## LTV and CLV
+
+Here we define the LTV (Life Time Value) as the revenue gathered from teams throughout their lifetime as a customer.
+
+```{r ltv, echo=FALSE}
+ltv_by_team <- dbGetQuery(con, "
+  WITH team_payments AS (
+    SELECT 
+      t.id as team_id,
+      t.name as team_name,
+      SUM(p.amount_cts) as total_payments_cts
+    FROM \"Team\" t
+    LEFT JOIN \"Subscription\" s ON s.team_id = t.id
+    LEFT JOIN \"Payment\" p ON p.subscription_id = s.id
+    WHERE s.cancelled_at IS NULL
+    GROUP BY t.id, t.name
+  ),
+  team_refunds AS (
+    SELECT
+      t.id as team_id,
+      SUM(r.amounts_cts) as total_refunds_cts
+    FROM \"Team\" t
+    LEFT JOIN \"Subscription\" s ON s.team_id = t.id
+    LEFT JOIN \"Payment\" p ON p.subscription_id = s.id
+    LEFT JOIN \"Refund\" r ON r.payment_id = p.id
+    WHERE s.cancelled_at IS NULL
+    GROUP BY t.id
+  )
+  SELECT 
+    tp.team_name,
+    (tp.total_payments_cts - COALESCE(tr.total_refunds_cts, 0)) / 100.0 as lifetime_value
+  FROM team_payments tp
+  LEFT JOIN team_refunds tr ON tr.team_id = tp.team_id
+  ORDER BY lifetime_value DESC
+")
+
+ltv_by_team <- ltv_by_team %>%
+  mutate(
+    lifetime_value = as.numeric(lifetime_value),
+    formatted_ltv = paste0("$", format(round(lifetime_value, 2), big.mark=","))
+  )
+
+top_teams <- ltv_by_team %>%
+  arrange(desc(lifetime_value)) %>%
+  # Take top 20
+  slice_head(n = 20)
+
+ggplot(top_teams, aes(x = reorder(team_name, lifetime_value), y = lifetime_value)) +
+  geom_col(fill = "#63B3ED", width = 0.7) +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.background = element_rect(fill = "#1A202C", color = "#1A202C"),
+    panel.background = element_rect(fill = "#1A202C", color = "#1A202C"),
+    text = element_text(color = "#E2E8F0"),
+    plot.title = element_text(
+      hjust = 0.5, 
+      size = 16, 
+      face = "bold", 
+      color = "#E2E8F0",
+      margin = margin(b = 20)
+    ),
+    axis.title = element_text(size = 12, color = "#E2E8F0"),
+    axis.text.y = element_text(
+      size = 10, 
+      color = "#A0AEC0",
+      margin = margin(r = 10)
+    ),
+    axis.text.x = element_text(
+      size = 10, 
+      color = "#A0AEC0",
+      angle = 0
+    ),
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(color = "#2D3748"),
+    panel.grid.minor = element_blank(),
+    plot.margin = margin(20, 20, 20, 20)
+  ) +
+  labs(
+    title = "Top 20 Teams by Lifetime Value",
+    x = "",
+    y = "Lifetime Value ($)"
+  ) +
+  scale_y_continuous(
+    labels = scales::dollar_format(scale = 1),
+    expand = expansion(mult = c(0, 0.1))
+  )
+```
+
+
+```{r clv, echo=FALSE}
+
+clv <- dbGetQuery(con, "
+  WITH team_revenue AS (
+    SELECT 
+      t.id as team_id,
+      t.name as team_name,
+      MIN(s.created_at) as first_subscription,
+      CURRENT_DATE as current_date,
+      SUM(p.amount_cts) as total_payments_cts,
+      SUM(COALESCE(r.amounts_cts, 0)) as total_refunds_cts
+    FROM \"Team\" t
+    LEFT JOIN \"Subscription\" s ON s.team_id = t.id
+    LEFT JOIN \"Payment\" p ON p.subscription_id = s.id
+    LEFT JOIN \"Refund\" r ON r.payment_id = p.id
+    GROUP BY t.id, t.name
+  )
+  SELECT 
+    team_name,
+    EXTRACT(EPOCH FROM (current_date - first_subscription)) / (86400 * 30) as months_as_customer,
+    (total_payments_cts - total_refunds_cts)::float / 
+      GREATEST(EXTRACT(EPOCH FROM (current_date - first_subscription)) / (86400 * 30), 1) as monthly_value_cts
+  FROM team_revenue
+  ORDER BY monthly_value_cts DESC
+")
+
+clv_summary <- clv %>%
+  mutate(
+    months_as_customer = round(as.numeric(months_as_customer), 1),
+    monthly_value = as.numeric(monthly_value_cts) / 100
+  ) %>%
+  summarise(
+    avg_monthly_value = mean(monthly_value),
+    median_monthly_value = median(monthly_value),
+    avg_customer_age_months = mean(months_as_customer)
+  )
+```
+
+
+And Monthly CLV (Customer Lifetime Value) as the amount a team has paid over time over the number of months for which they have been a customer.
+
+Average monthly CLV: **$`r format(round(clv_summary$avg_monthly_value, 2), big.mark=",")`** (median is $
+**`r format(round(clv_summary$median_monthly_value, 2), big.mark=",")`**).
+
+Average customer age is **`r format(round(clv_summary$avg_customer_age_months, 1))`** months.
+
+```{r include=FALSE}
+
+# Close connection
+dbDisconnect(con)
+```

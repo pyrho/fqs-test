@@ -1,0 +1,273 @@
+[
+  {
+    "id": 1,
+    "email": "user1@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 800,
+    "start_date": "2023-01-10",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 2,
+    "email": "user2@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 2200,
+    "start_date": "2022-10-01",
+    "ends_at": null,
+    "active": false
+  },
+  {
+    "id": 3,
+    "email": "user3@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 499,
+    "start_date": "2023-05-20",
+    "ends_at": "2024-05-20",
+    "active": true
+  },
+  {
+    "id": 4,
+    "email": "user4@example.com",
+    "sub_plan": "Enterprise",
+    "mthly_price": 4800,
+    "start_date": "2021-11-15",
+    "ends_at": "2022-11-15",
+    "active": false
+  },
+  {
+    "id": 5,
+    "email": "user5@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 3100,
+    "start_date": "2022-01-01",
+    "ends_at": "2023-01-01",
+    "active": false
+  },
+  {
+    "id": 6,
+    "email": "user6@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 999,
+    "start_date": "2023-02-05",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 7,
+    "email": "user7@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 300,
+    "start_date": "2022-12-10",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 8,
+    "email": "user8@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 2999,
+    "start_date": "2023-07-01",
+    "ends_at": null,
+    "active": false
+  },
+  {
+    "id": 9,
+    "email": "user9@example.com",
+    "sub_plan": "Enterprise",
+    "mthly_price": 5500,
+    "start_date": "2021-06-20",
+    "ends_at": "2023-06-20",
+    "active": false
+  },
+  {
+    "id": 10,
+    "email": "user10@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 1800,
+    "start_date": "2023-01-25",
+    "ends_at": "2024-01-25",
+    "active": true
+  },
+  {
+    "id": 11,
+    "email": "user11@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 1200,
+    "start_date": "2021-04-03",
+    "ends_at": "2022-04-03",
+    "active": false
+  },
+  {
+    "id": 12,
+    "email": "user12@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 2500,
+    "start_date": "2022-05-17",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 13,
+    "email": "user13@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 499,
+    "start_date": "2023-07-11",
+    "ends_at": "2023-12-11",
+    "active": true
+  },
+  {
+    "id": 14,
+    "email": "user14@example.com",
+    "sub_plan": "Enterprise",
+    "mthly_price": 4999,
+    "start_date": "2021-02-20",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 15,
+    "email": "user15@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 1999,
+    "start_date": "2021-09-25",
+    "ends_at": "2021-12-25",
+    "active": false
+  },
+  {
+    "id": 16,
+    "email": "user16@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 3500,
+    "start_date": "2022-09-05",
+    "ends_at": "2023-09-05",
+    "active": true
+  },
+  {
+    "id": 17,
+    "email": "user17@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 100,
+    "start_date": "2023-02-08",
+    "ends_at": null,
+    "active": false
+  },
+  {
+    "id": 18,
+    "email": "user18@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 999,
+    "start_date": "2021-03-10",
+    "ends_at": "2023-03-10",
+    "active": false
+  },
+  {
+    "id": 19,
+    "email": "user19@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 2400,
+    "start_date": "2022-06-14",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 20,
+    "email": "user20@example.com",
+    "sub_plan": "Enterprise",
+    "mthly_price": 4500,
+    "start_date": "2023-01-10",
+    "ends_at": "2025-01-10",
+    "active": true
+  },
+  {
+    "id": 21,
+    "email": "user21@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 2999,
+    "start_date": "2021-08-18",
+    "ends_at": "2021-10-01",
+    "active": false
+  },
+  {
+    "id": 22,
+    "email": "user22@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 1700,
+    "start_date": "2023-06-12",
+    "ends_at": "2024-06-12",
+    "active": true
+  },
+  {
+    "id": 23,
+    "email": "user23@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 800,
+    "start_date": "2020-12-24",
+    "ends_at": "2021-02-01",
+    "active": false
+  },
+  {
+    "id": 24,
+    "email": "user24@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 600,
+    "start_date": "2023-03-15",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 25,
+    "email": "user25@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 2000,
+    "start_date": "2020-05-10",
+    "ends_at": "2020-12-10",
+    "active": false
+  },
+  {
+    "id": 26,
+    "email": "user26@example.com",
+    "sub_plan": "Enterprise",
+    "mthly_price": 5200,
+    "start_date": "2022-11-25",
+    "ends_at": "2024-11-25",
+    "active": true
+  },
+  {
+    "id": 27,
+    "email": "user27@example.com",
+    "sub_plan": "Premium",
+    "mthly_price": 1900,
+    "start_date": "2023-07-25",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 28,
+    "email": "user28@example.com",
+    "sub_plan": "Basic",
+    "mthly_price": 1500,
+    "start_date": "2021-01-15",
+    "ends_at": "2023-01-15",
+    "active": false
+  },
+  {
+    "id": 29,
+    "email": "user29@example.com",
+    "sub_plan": "Student",
+    "mthly_price": 499,
+    "start_date": "2023-05-01",
+    "ends_at": null,
+    "active": true
+  },
+  {
+    "id": 30,
+    "email": "user30@example.com",
+    "sub_plan": "Pro",
+    "mthly_price": 2800,
+    "start_date": "2022-10-10",
+    "ends_at": null,
+    "active": true
+  }
+]
+

@@ -1,0 +1,13 @@
+services:
+  postgres:
+    container_name: fqs_db
+    image: postgres:17.2
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
+      POSTGRES_DB: ${POSTGRES_USER:-fqs}
+      PGDATA: /data/postgres
+    volumes:
+       - ${PWD}/db-data/:/var/lib/postgresql/data/
+    ports:
+      - "54321:5432"

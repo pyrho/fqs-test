@@ -1,0 +1,7 @@
+[
+  { "id": 1, "plan_name": "Basic",      "default_amount_cts": 999 },
+  { "id": 2, "plan_name": "Premium",    "default_amount_cts": 1999 },
+  { "id": 3, "plan_name": "Pro",        "default_amount_cts": 2999 },
+  { "id": 4, "plan_name": "Enterprise","default_amount_cts": 4999 },
+  { "id": 5, "plan_name": "Student",    "default_amount_cts": 499 }
+]

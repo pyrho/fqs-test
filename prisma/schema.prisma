@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator dbml {
+  provider = "prisma-dbml-generator"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  email      String   @unique
+  role       Role     @default(USER)
+  team_id    Int
+
+  // Virtual
+  team Team @relation(fields: [team_id], references: [id])
+}
+
+model Team {
+  id                Int     @id @default(autoincrement())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  name              String
+  automatic_renewal Boolean
+
+  // Virtual fields
+  subscriptions   Subscription[]
+  payment_methods PaymentMethod[]
+  users           User[]
+}
+
+model Subscription {
+  id           Int       @id @default(autoincrement())
+  created_at   DateTime  @default(now())
+  team_id      Int
+  plan_id      Int
+  start_date   DateTime  @default(now())
+  end_date     DateTime
+  cancelled_at DateTime?
+  upgraded_at  DateTime?
+  refundable   Boolean   @default(false)
+
+  // Virtual
+  discounts Discount[]
+  payment   Payment?
+  team      Team       @relation(fields: [team_id], references: [id])
+  plan      Plan       @relation(fields: [plan_id], references: [id])
+}
+
+enum PlanTier {
+  BASIC
+  PREMIUM
+  PRO
+  ENTERPRISE
+  STUDENT
+  LEGACY_BASIC
+  LEGACY_PREMIUM
+  LEGACY_PRO
+  LEGACY_ENTERPRISE
+  LEGACY_STUDENT
+}
+
+enum Recurrence {
+  MONTHLY
+  THREE_MONTHS
+  YEARLY
+}
+
+model Plan {
+  id         Int        @id @default(autoincrement())
+  created_at DateTime   @default(now())
+  tier       PlanTier
+  price_cts  Int
+  recurrence Recurrence
+
+  // Virtual
+  subscriptions Subscription[]
+}
+
+model Discount {
+  id              Int          @id @default(autoincrement())
+  created_at      DateTime     @default(now())
+  subscription_id Int
+  subscription    Subscription @relation(fields: [subscription_id], references: [id])
+  amount_cts      Int
+}
+
+model PaymentMethod {
+  id                Int       @id @default(autoincrement())
+  created_at        DateTime  @default(now())
+  team_id           Int
+  team              Team      @relation(fields: [team_id], references: [id])
+  payments          Payment[]
+  payment_data_hash String
+}
+
+model Payment {
+  id                Int           @id @default(autoincrement())
+  created_at        DateTime      @default(now())
+  subscription_id   Int           @unique
+  subscription      Subscription  @relation(fields: [subscription_id], references: [id])
+  amount_cts        Int
+  transaction_id    String
+  payment_method_id Int
+  payment_method    PaymentMethod @relation(fields: [payment_method_id], references: [id])
+  refunds           Refund[]
+}
+
+model Refund {
+  id             Int      @id @default(autoincrement())
+  created_at     DateTime @default(now())
+  transaction_id String
+  amounts_cts    Int
+  payment_id     Int
+  payment        Payment  @relation(fields: [payment_id], references: [id])
+}

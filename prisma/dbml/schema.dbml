@@ -1,0 +1,127 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  updated_at DateTime [not null]
+  email String [unique, not null]
+  role Role [not null, default: 'USER']
+  team_id Int [not null]
+  team Team [not null]
+}
+
+Table Team {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  updated_at DateTime [not null]
+  name String [not null]
+  automatic_renewal Boolean [not null]
+  subscriptions Subscription [not null]
+  payment_methods PaymentMethod [not null]
+  users User [not null]
+}
+
+Table Subscription {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  team_id Int [not null]
+  plan_id Int [not null]
+  start_date DateTime [default: `now()`, not null]
+  end_date DateTime [not null]
+  cancelled_at DateTime
+  upgraded_at DateTime
+  refundable Boolean [not null, default: false]
+  discounts Discount [not null]
+  payment Payment
+  team Team [not null]
+  plan Plan [not null]
+}
+
+Table Plan {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  tier PlanTier [not null]
+  price_cts Int [not null]
+  recurrence Recurrence [not null]
+  subscriptions Subscription [not null]
+}
+
+Table Discount {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  subscription_id Int [not null]
+  subscription Subscription [not null]
+  amount_cts Int [not null]
+}
+
+Table PaymentMethod {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  team_id Int [not null]
+  team Team [not null]
+  payments Payment [not null]
+  payment_data_hash String [not null]
+}
+
+Table Payment {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  subscription_id Int [unique, not null]
+  subscription Subscription [not null]
+  amount_cts Int [not null]
+  transaction_id String [not null]
+  payment_method_id Int [not null]
+  payment_method PaymentMethod [not null]
+  refunds Refund [not null]
+}
+
+Table Refund {
+  id Int [pk, increment]
+  created_at DateTime [default: `now()`, not null]
+  transaction_id String [not null]
+  amounts_cts Int [not null]
+  payment_id Int [not null]
+  payment Payment [not null]
+}
+
+Enum Role {
+  USER
+  ADMIN
+}
+
+Enum PlanTier {
+  BASIC
+  PREMIUM
+  PRO
+  ENTERPRISE
+  STUDENT
+  LEGACY_BASIC
+  LEGACY_PREMIUM
+  LEGACY_PRO
+  LEGACY_ENTERPRISE
+  LEGACY_STUDENT
+}
+
+Enum Recurrence {
+  MONTHLY
+  THREE_MONTHS
+  YEARLY
+}
+
+Ref: User.team_id > Team.id
+
+Ref: Subscription.team_id > Team.id
+
+Ref: Subscription.plan_id > Plan.id
+
+Ref: Discount.subscription_id > Subscription.id
+
+Ref: PaymentMethod.team_id > Team.id
+
+Ref: Payment.subscription_id - Subscription.id
+
+Ref: Payment.payment_method_id > PaymentMethod.id
+
+Ref: Refund.payment_id > Payment.id
